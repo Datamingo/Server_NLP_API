@@ -19,6 +19,8 @@ import numpy as np
 from keras.models import load_model
 from keras.preprocessing.sequence import pad_sequences
 import pickle
+import os
+from .BqLoader import *
 sys.stdout.flush()
 
 #######################################################################################################
@@ -27,12 +29,14 @@ sys.stdout.flush()
 test_str = 'burgerking'
 test_str = test_str.lower()
 
+ROOT_PROJ_PATH =os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 #local path
-MODEL_PATH = "/Users/kyubum/PycharmProjects/Backend_API/create_model/embedding_model_SkipGram"
-TABLE_PATH = "/Users/kyubum/PycharmProjects/Backend_API/create_model/word_count_table.json"
-WM_PATH = "/Users/kyubum/PycharmProjects/Backend_API/create_model/weight_matrix.csv"
-TOKENIZER_PATH = "/Users/kyubum/PycharmProjects/Backend_API/create_model/keras_tokenizer.pickle"
-SENTIMENT_MODEL_PATH = "/Users/kyubum/PycharmProjects/Backend_API/create_model/yelp_sentiment_model.hdf5"
+MODEL_PATH = ROOT_PROJ_PATH + "/create_model/embedding_model_SkipGram"
+TABLE_PATH = ROOT_PROJ_PATH + "/create_model/word_count_table.json"
+WM_PATH = ROOT_PROJ_PATH + "/create_model/weight_matrix.csv"
+TOKENIZER_PATH = ROOT_PROJ_PATH + "/create_model/keras_tokenizer.pickle"
+SENTIMENT_MODEL_PATH = ROOT_PROJ_PATH + "/create_model/yelp_sentiment_model.hdf5"
 
 #Server path
 #MODEL_PATH = "/usr/local/etc/django/model/embedding_model_SkipGram"
@@ -270,6 +274,40 @@ def wiki_api(keyword, start, end, agent = 'user'):
     result = json.dumps(output_list)
     return result
 
+#######################################################################################################
+#   BigQuery
+#######################################################################################################
+def searchRestaurantsInformation(city, cate):
+    what = ['name',
+                      'menuName',
+                      'menuDescription',
+                      'menuBasePrice',
+                      'zip',
+                      'Phone',
+                      'latitude',
+                      'longitude',
+                      'logoUrl']
+    ins = ResInfoLoader('datamingo', 'company', 'us_restaurants', what)
+    ret = ins.query_information_from_us_restaurants(city, cate)
+    return ret
+
+def searchCityList():
+    what = ['city']
+    ins = ResCityLoader('datamingo', 'company', 'us_city', what)
+    ret = ins.query_city_from_us_restaurants()
+    return ret
+
+def searchMenuCategoryList():
+    what = ['menuCategory']
+    ins = ResMenuCateLoader('datamingo', 'company', 'us_menuCategory', what)
+    ret = ins.query_city_from_us_restaurants()
+    return ret
+
+def searchCompanyList(city, menuCete):
+    what = ['DISTINCT name']
+    ins = ResInfoLoader('datamingo', 'company', 'us_restaurants', what)
+    ret = ins.query_information_from_us_restaurants(city, menuCete)
+    return ret
 
 #######################################################################################################
 # 리퀘스트 id 로 파라미터 보내기
@@ -311,5 +349,18 @@ def index(request):
         start = str(request.GET['start'])
         end = str(request.GET['end'])
         result = wiki_api(res_name, start, end)
+    # bq
+    elif request.GET["id"] == "resInfo":
+        print(request.GET['city'])
+        print(request.GET['menuCate'])
+        result = searchRestaurantsInformation(request.GET['city'], request.GET['menuCate'])
+    elif request.GET["id"] == "resCityList":
+        result = searchCityList()
+    elif request.GET["id"] == "resMenuCateList":
+        result = searchMenuCategoryList()
+    elif request.GET["id"] == "resList":
+        result = searchCompanyList(request.GET['city'], request.GET['menuCate'])
             
     return HttpResponse(result)
+
+# http://localhost:8000/api/?id=resInfo&city=Omaha&menuCate=Appetizers
